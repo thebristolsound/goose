@@ -68,7 +68,7 @@ pub fn get_input(
         rustyline::EventHandler::Conditional(Box::new(CtrlCHandler)),
     );
 
-    let prompt = format!("{} ", console::style("( O)>").cyan().bold());
+    let prompt = get_input_prompt_string();
 
     let input = match editor.readline(&prompt) {
         Ok(text) => text,
@@ -269,6 +269,21 @@ fn parse_plan_command(input: String) -> Option<InputResult> {
     };
 
     Some(InputResult::Plan(options))
+}
+
+fn get_input_prompt_string_with_os(is_windows: bool) -> String {
+    let goose = "( O)>";
+    if is_windows {
+        format!("{goose} ")
+    } else {
+        // On other platforms, use styled prompt with ANSI colors
+        format!("{} ", console::style(goose).cyan().bold())
+    }
+}
+
+fn get_input_prompt_string() -> String {
+    // Build the prompt in a single function using cfg! to avoid inactive-code diagnostics.
+    get_input_prompt_string_with_os(cfg!(target_os = "windows"))
 }
 
 fn print_help() {
@@ -535,5 +550,33 @@ mod tests {
         // Test with whitespace
         let result = handle_slash_command("  /summarize  ");
         assert!(matches!(result, Some(InputResult::Summarize)));
+    }
+
+    #[test]
+    fn test_get_input_prompt_string() {
+        // Test Windows-specific prompt (plain text)
+        let windows_prompt = get_input_prompt_string_with_os(true);
+        assert_eq!(windows_prompt, "( O)> ");
+        assert!(!windows_prompt.contains('\x1b'));
+        assert!(!windows_prompt.contains("36") && !windows_prompt.contains("1"));
+
+        // Test non-Windows prompt (with ANSI styling)
+        let non_windows_prompt = get_input_prompt_string_with_os(false);
+        assert!(non_windows_prompt.contains("( O)>"));
+        assert!(non_windows_prompt.ends_with(' '));
+        assert!(non_windows_prompt.contains('\x1b'));
+        // Should contain cyan (36) and bold (1) ANSI codes
+        assert!(non_windows_prompt.contains("36") || non_windows_prompt.contains("1"));
+    }
+
+    #[test]
+    fn test_prompt_consistency() {
+        // Test that get_input_prompt_string() returns consistent results
+        let prompt1 = get_input_prompt_string();
+        let prompt2 = get_input_prompt_string();
+        assert_eq!(prompt1, prompt2);
+
+        // Test that prompt is not empty
+        assert!(!get_input_prompt_string().trim().is_empty());
     }
 }
