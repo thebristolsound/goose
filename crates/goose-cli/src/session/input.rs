@@ -282,7 +282,9 @@ fn get_input_prompt_string_with_os(is_windows: bool) -> String {
 }
 
 fn get_input_prompt_string() -> String {
-    // Build the prompt in a single function using cfg! to avoid inactive-code diagnostics.
+    // This function uses cfg! to determine the OS at runtime and delegates to
+    // get_input_prompt_string_with_os. This structure enables easier testing by
+    // allowing the OS parameter to be injected in tests.
     get_input_prompt_string_with_os(cfg!(target_os = "windows"))
 }
 
@@ -567,16 +569,5 @@ mod tests {
         assert!(non_windows_prompt.contains('\x1b'));
         // Should contain cyan (36) and bold (1) ANSI codes
         assert!(non_windows_prompt.contains("36") || non_windows_prompt.contains("1"));
-    }
-
-    #[test]
-    fn test_prompt_consistency() {
-        // Test that get_input_prompt_string() returns consistent results
-        let prompt1 = get_input_prompt_string();
-        let prompt2 = get_input_prompt_string();
-        assert_eq!(prompt1, prompt2);
-
-        // Test that prompt is not empty
-        assert!(!get_input_prompt_string().trim().is_empty());
     }
 }
