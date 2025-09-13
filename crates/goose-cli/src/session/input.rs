@@ -271,21 +271,15 @@ fn parse_plan_command(input: String) -> Option<InputResult> {
     Some(InputResult::Plan(options))
 }
 
-fn get_input_prompt_string_with_os(is_windows: bool) -> String {
+fn get_input_prompt_string() -> String {
+    // Build the prompt in a single function using cfg! to avoid inactive-code diagnostics.
     let goose = "( O)>";
-    if is_windows {
+    if cfg!(target_os = "windows") {
         format!("{goose} ")
     } else {
         // On other platforms, use styled prompt with ANSI colors
         format!("{} ", console::style(goose).cyan().bold())
     }
-}
-
-fn get_input_prompt_string() -> String {
-    // This function uses cfg! to determine the OS at runtime and delegates to
-    // get_input_prompt_string_with_os. This structure enables easier testing by
-    // allowing the OS parameter to be injected in tests.
-    get_input_prompt_string_with_os(cfg!(target_os = "windows"))
 }
 
 fn print_help() {
@@ -556,18 +550,29 @@ mod tests {
 
     #[test]
     fn test_get_input_prompt_string() {
-        // Test Windows-specific prompt (plain text)
-        let windows_prompt = get_input_prompt_string_with_os(true);
-        assert_eq!(windows_prompt, "( O)> ");
-        assert!(!windows_prompt.contains('\x1b'));
-        assert!(!windows_prompt.contains("36") && !windows_prompt.contains("1"));
+        let prompt = get_input_prompt_string();
 
-        // Test non-Windows prompt (with ANSI styling)
-        let non_windows_prompt = get_input_prompt_string_with_os(false);
-        assert!(non_windows_prompt.contains("( O)>"));
-        assert!(non_windows_prompt.ends_with(' '));
-        assert!(non_windows_prompt.contains('\x1b'));
-        // Should contain cyan (36) and bold (1) ANSI codes
-        assert!(non_windows_prompt.contains("36") || non_windows_prompt.contains("1"));
+        // Prompt should always end with a space
+        assert!(prompt.ends_with(" "));
+
+        // Prompt should contain the goose face
+        assert!(prompt.contains("( O)>"));
+
+        // On Windows, prompt should be plain text without ANSI codes
+        #[cfg(target_os = "windows")]
+        {
+            assert_eq!(prompt, "( O)> ");
+            // Ensure no ANSI escape sequences
+            assert!(!prompt.contains("\x1b["));
+        }
+
+        // On non-Windows, prompt should contain ANSI styling (cyan and bold)
+        #[cfg(not(target_os = "windows"))]
+        {
+            // The prompt should contain ANSI escape sequences for styling
+            assert!(prompt.contains("\x1b["));
+            // Should contain cyan (36) and bold (1) ANSI codes
+            assert!(prompt.contains("36") || prompt.contains("1"));
+        }
     }
 }
